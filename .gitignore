@@ -14,6 +14,11 @@ out
 .idea
 
 # gradle
+LICENSE.txt
+README.txt
+CREDITS.txt
+changelog.txt
+gradle.properties
 build
 .gradle
 

@@ -34,39 +34,55 @@ public class AdvancementStats {
 		MinecraftForge.EVENT_BUS.register(this);
 	}
 	
+	private void progressScoringPlayerObjective(AdvancementEvent event, int pointValue) {
+		final Scoreboard board = event.getPlayer().getServer().getScoreboard();
+		board.getOrCreatePlayerScore(event.getPlayer().getName().getString(), board.getOrCreateObjective("advancements")).add(pointValue);
+	}
+	
+	private void setScoringPlayerObjective(AdvancementEvent event, int pointValue) {
+		final Scoreboard board = event.getPlayer().getServer().getScoreboard();
+		board.getOrCreatePlayerScore(event.getPlayer().getName().getString(), board.getOrCreateObjective("advancements")).setScore(pointValue);
+	}
+	
+	private int getAdvancementPointValue(Advancement advancement) {
+		if(advancement.getDisplay() == null) {
+			if(ModConfiguration.excludeRecipes.get()) {
+				return 0;
+			} else {
+				return 1;
+			}
+		}
+		switch (advancement.getDisplay().getFrame()) {
+			case CHALLENGE:
+				return ModConfiguration.challengePointValue.get();
+			case GOAL:
+				return ModConfiguration.goalPointValue.get();
+			case TASK:
+				return ModConfiguration.taskPointValue.get();
+			default:
+				break;
+		}
+		return 0;
+	}
+	
 	@SubscribeEvent
 	public void advancement(AdvancementEvent event) {
 		if(event.getPlayer().getServer().getPlayerList().getPlayerAdvancements((ServerPlayerEntity) event.getPlayer()).getOrStartProgress(event.getAdvancement()).isDone()) {
 			final Scoreboard board = event.getPlayer().getServer().getScoreboard();
-			
-			// Make sure our scoreboard objective exists. If not, create it.
 			if(board.getObjective("advancements") == null) {
-				board.addObjective("advancements", ScoreCriteria.DUMMY, new StringTextComponent("Completed Advancements"), ScoreCriteria.RenderType.INTEGER);
-			}
-			
+				board.addObjective("advancements", ScoreCriteria.DUMMY, new StringTextComponent("Advancement Score"), ScoreCriteria.RenderType.INTEGER);
+			}	
 			if(ModConfiguration.doLazyAccounting.get()) {
-				// Upon advancement event, simply add one, do not recount.
-				if(ModConfiguration.excludeRecipes.get()) {
-					if(event.getAdvancement().getDisplay() == null) {
-						return;
-					}
-				}
-				board.getOrCreatePlayerScore(event.getPlayer().getName().getString(), board.getOrCreateObjective("advancements")).increment();
+				this.progressScoringPlayerObjective(event, this.getAdvancementPointValue(event.getAdvancement()));
 			} else {
-				// Upon advancement event, re-tally achievements and store result.
-				int completedAdvancements = 0;
+				int completedAdvancementsValue = 0;
 				final Collection<Advancement> serverAdvancements = event.getPlayer().getServer().getAdvancements().getAllAdvancements();
 				for(Advancement advancement : serverAdvancements) {
 					if(event.getPlayer().getServer().getPlayerList().getPlayerAdvancements((ServerPlayerEntity) event.getPlayer()).getOrStartProgress(advancement).isDone()) {
-						if(ModConfiguration.excludeRecipes.get()) {
-							if(advancement.getDisplay() == null) {
-								continue;
-							}
-						}
-						completedAdvancements++;
+						completedAdvancementsValue += this.getAdvancementPointValue(advancement);
 					}
 				}
-				board.getOrCreatePlayerScore(event.getPlayer().getName().getString(),  board.getOrCreateObjective("advancements")).setScore(completedAdvancements);
+				this.setScoringPlayerObjective(event, completedAdvancementsValue);
 			}
 		}
 	}
